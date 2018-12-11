@@ -1,57 +1,61 @@
 CREATE TABLE MAO_004_HDR (
 	RecordType			varchar(1)		-- 0 = Header
 ,	Delimiter01			varchar(1)		-- *
-,	ReportID			  varchar(7)		-- MAO-004
+,	ReportID			varchar(7)		-- MAO-004
 ,	Delimiter02			varchar(1)		-- *
-,	MAContractID		varchar(5)		-- 
+,	MAContractID			varchar(5)		-- 
 ,	Delimiter03			varchar(1)		-- *
 ,	ReportDate			varchar(8)		-- CCYYMMDD
 ,	Delimiter04			varchar(1)		-- *
 ,	ReportDesc			varchar(53)		-- "Encounter Data Diagnosis Eligible for Risk Adjustment"
 ,	Delimiter05			varchar(1)		-- *
-,	Filler01			  varchar(30)		-- Spaces
+,	Filler01			varchar(30)		-- Spaces
 ,	Delimiter06			varchar(1)		-- *
-,	SubmissionFileType	varchar(4)		-- PROD or TEST
+,	SubmissionFileType		varchar(4)		-- PROD or TEST
 ,	Delimiter07			varchar(1)		-- *
-,	Filler02			  varchar(385)	-- Spaces
+,	Filler02			varchar(385)		-- Spaces
+,	DateImported			dateTime		-- 
+,	FileName			varchar(256)		-- path + filename
 )
 
 CREATE TABLE MAO_004_DTL (
 	RecordType			varchar(1)		-- 1 = Detail
 ,	Delimiter01			varchar(1)		-- *
-,	ReportID			  varchar(7)		-- MAO-004
+,	ReportID			varchar(7)		-- MAO-004
 ,	Delimiter02			varchar(1)		-- *
-,	MAContractID		varchar(5)		-- 
+,	MAContractID			varchar(5)		-- 
 ,	Delimiter03			varchar(1)		-- *
-,	BeneficiaryHICN	varchar(12)		-- Beneficiary Health Insurance Claim Number
+,	BeneficiaryHICN			varchar(12)		-- Beneficiary Health Insurance Claim Number
 ,	Delimiter04			varchar(1)		-- *
-,	EncounterICN		varchar(44)		-- Encounter Data System (EDS) Internal Control Number (ICN)
-										            -- Note: Currently the ICN is 13 characters long
+,	EncounterICN			varchar(44)		-- Encounter Data System (EDS) Internal Control Number (ICN)
+								-- Note: Currently the ICN is 13 characters long
 ,	Delimiter05			varchar(1)		-- *
-,	EncounterTypeSwitch	varchar(1)		-- See ## Note 1 Below
+,	EncounterTypeSwitch		varchar(1)		-- See ## Note 1 Below
 ,	Delimiter06			varchar(1)		-- *
-,	OriginalEncounterICN varchar(44)	-- Encounter Data System (EDS) Internal Control Number (ICN)
-										                -- See ## Note 2 Below
+,	OriginalEncounterICN 		varchar(44)		-- Encounter Data System (EDS) Internal Control Number (ICN)
+								-- See ## Note 2 Below
 ,	Delimiter07			varchar(1)		-- *
-,	PlanSubmissionDate	varchar(8)		-- CCYYMMDD
+,	PlanSubmissionDate		varchar(8)		-- CCYYMMDD
 ,	Delimiter08			varchar(1)		-- *
-,	ProcessingDate	varchar(8)		-- CCYYMMDD
+,	ProcessingDate			varchar(8)		-- CCYYMMDD
 ,	Delimiter09			varchar(1)		-- *
-,	FromDateOfService	varchar(8)	-- CCYYMMDD
+,	FromDateOfService		varchar(8)		-- CCYYMMDD
 ,	Delimiter10			varchar(1)		-- *
-,	ThruDateOfService	varchar(8)	-- CCYYMMDD
+,	ThruDateOfService		varchar(8)		-- CCYYMMDD
 ,	Delimiter11			varchar(1)		-- *
-,	ClaimType			  varchar(1)		-- Type of Claim: P = Professional, I = Inpatient, O = Outpatient
+,	ClaimType			varchar(1)		-- Type of Claim: P = Professional, I = Inpatient, O = Outpatient
 ,	Delimiter12			varchar(1)		-- *
-,	DiagnosisCode		varchar(7)		-- ICD-10 (ICD-9 for pre ICD-10 implementation dates)
+,	DiagnosisCode			varchar(7)		-- ICD-10 (ICD-9 for pre ICD-10 implementation dates)
 ,	Delimiter13			varchar(1)		-- *
-,	DiagnosisICD		varchar(1)		-- 0 = ICD-10, 9 = ICD-9
+,	DiagnosisICD			varchar(1)		-- 0 = ICD-10, 9 = ICD-9
 ,	Delimiter14			varchar(1)		-- *
-,	AddOrDeleteFlag		varchar(1)	-- A = Add, D = Delete
-										            -- See ## Note 3 Below
+,	AddOrDeleteFlag			varchar(1)		-- A = Add, D = Delete
+								-- See ## Note 3 Below
 ,	Delimiter15			varchar(1)		-- *
-,	DiagnosisCodes	varchar(288)	-- See ## Note 4 Below
-,	Filler				  varchar(41)	  -- 
+,	DiagnosisCodes			varchar(288)		-- See ## Note 4 Below
+,	Filler				varchar(41)	  	-- 
+,	DateImported			dateTime		-- 
+,	FileName			varchar(256)		-- path + filename
 )
 /*
  ## Note 1. Encounter Type Switch
@@ -84,11 +88,13 @@ CREATE TABLE MAO_004_DTL (
 CREATE TABLE MAO_004_TL (
 	RecordType			varchar(1)		-- 9 = Trailer
 ,	Delimiter01			varchar(1)		-- *
-,	ReportID			  varchar(7)		-- MAO-004
+,	ReportID			varchar(7)		-- MAO-004
 ,	Delimiter02			varchar(1)		-- *
-,	MAContractID		varchar(5)		-- 
+,	MAContractID			varchar(5)		-- 
 ,	Delimiter03			varchar(1)		-- *
-,	TotalNumberOfRecords varchar(18)	-- Count of records on this report
+,	TotalNumberOfRecords 		varchar(18)		-- Count of records on this report
 ,	Delimiter04			varchar(1)		-- *
-,	Filler				  varchar(465)	-- Spaces
+,	Filler				varchar(465)		-- Spaces
+,	DateImported			dateTime		-- 
+,	FileName			varchar(256)		-- path + filename
 )
