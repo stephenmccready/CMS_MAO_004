@@ -17,7 +17,7 @@ Truncate Table [dbo].[tbl_MAO_004_In]
 Declare @BulkCmd As nvarChar(MAX)
 Set		@BulkCmd = "BULK INSERT tbl_MAO_004_In FROM '"+@path+@filename+"' WITH (FIELDTERMINATOR = '\n')"
 Exec	(@BulkCmd)
-*/
+
 Declare @today As DateTime 
 Set @today=getDate()
 
@@ -137,3 +137,4 @@ Left	Outer Join [dbo].[tbl_MAO_004_Trailer] As MT
 		  And MT.[FileName] = @filename
 Where	SubString(M4.Col001,1,1) = '9'
 And		MT.[RecordType] Is Null
+End
