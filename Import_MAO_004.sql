@@ -6,249 +6,247 @@ GO
 Create Procedure usp_VerifyfactEDPSMAO04Diagnosis @path varchar(256), @MAO004filename varchar(256) As 
 Begin
 
-If OBJECT_ID('dbo.MAO004In') Is Not Null Drop Table [dbo].[MAO004In]
-Create Table [dbo].[MAO004In] (col001 varchar(max))
-
--- Bulk Insert is untested as need permissions
+If OBJECT_ID('dbo.MAO004In') Is Not Null Drop Table dbo.MAO004In
+Create Table dbo.MAO004In (col001 varchar(max))
 Declare @BulkCmd As nvarChar(4000)
-Set		@BulkCmd = "BULK INSERT [dbo].[MAO004In] FROM '"+@path+@MAO004filename+"' WITH (ROWTERMINATOR = '0x0a')"
+Set @BulkCmd = "BULK INSERT dbo.MAO004In FROM '"+@path+@MAO004filename+"' WITH (ROWTERMINATOR = '0x0a')"
 Exec	(@BulkCmd)
 
 Declare @today As DateTime 
 Set @today=getDate()
 
 -- Header
-Insert	Into [dbo].[MAO004_HDR]
-Select	  SubString(M4.Col001,1,1) As [RecordType]		  	-- 0 = Header	
-		, SubString(M4.Col001,2,1) As [Delimiter01]		-- *
-		, SubString(M4.Col001,3,7) As [ReportID]		-- MAO-004
-		, SubString(M4.Col001,10,1) As [Delimiter02]		-- *
-		, SubString(M4.Col001,11,5) As [MAContractID]		-- 
-		, SubString(M4.Col001,16,1) As [Delimiter03]		-- *
-		, SubString(M4.Col001,17,8) As [ReportDate]		-- CCYYMMDD
-		, SubString(M4.Col001,25,1) As [Delimiter04]		-- *
-		, SubString(M4.Col001,26,53) As [ReportDesc]		-- "Encounter Data Diagnosis Eligible for Risk Adjustment"
-		, SubString(M4.Col001,79,1) As [Delimiter05]		-- *
-		, SubString(M4.Col001,80,30) As [Filler01]		-- Spaces
-		, SubString(M4.Col001,110,1) As [Delimiter06]		-- *
-		, SubString(M4.Col001,111,4) As [SubmissionFileType]	--  PROD or TEST
-		, SubString(M4.Col001,115,1) As [Delimiter07]		-- *
-		, SubString(M4.Col001,116,1) As [Phase]			--  Phase
-		, SubString(M4.Col001,117,1) As [Delimiter08]		-- *
-		, SubString(M4.Col001,118,1) As [Version]		--  Version
-		, SubString(M4.Col001,119,1) As [Delimiter09]		-- *
-		, SubString(M4.Col001,120,381) As [Filler02]	    	-- Spaces
+Insert	Into MAO004_HDR
+Select	  SubString(M4.Col001,1,1) As RecordType		-- 0 = Header	
+		, SubString(M4.Col001,2,1) As Delimiter01		-- *
+		, SubString(M4.Col001,3,7) As ReportID			-- MAO-004
+		, SubString(M4.Col001,10,1) As Delimiter02		-- *
+		, SubString(M4.Col001,11,5) As MAContractID		-- 
+		, SubString(M4.Col001,16,1) As Delimiter03		-- *
+		, SubString(M4.Col001,17,8) As ReportDate		-- CCYYMMDD
+		, SubString(M4.Col001,25,1) As Delimiter04		-- *
+		, SubString(M4.Col001,26,53) As ReportDesc		-- "Encounter Data Diagnosis Eligible for Risk Adjustment"
+		, SubString(M4.Col001,79,1) As Delimiter05		-- *
+		, SubString(M4.Col001,80,30) As Filler01		-- Spaces
+		, SubString(M4.Col001,110,1) As Delimiter06		-- *
+		, SubString(M4.Col001,111,4) As SubmissionFileType--  PROD or TEST
+		, SubString(M4.Col001,115,1) As Delimiter07		-- *
+		, SubString(M4.Col001,116,1) As Phase			--  Phase
+		, SubString(M4.Col001,117,1) As Delimiter08		-- *
+		, SubString(M4.Col001,118,1) As Version			--  Version
+		, SubString(M4.Col001,119,1) As Delimiter09		-- *
+		, SubString(M4.Col001,120,381) As Filler02	    -- Spaces
 		, @today As [DateImported]
 		, @MAO004filename As [FileName]
-From	[dbo].[MAO004In] As M4
-Left	Outer Join [dbo].[MAO004_HDR] As MH
-		On MH.[ReportDate]=SubString(M4.Col001,17,8)
+From	MAO004In As M4
+Left	Outer Join MAO004_HDR As MH
+		On MH.ReportDate=SubString(M4.Col001,17,8)
 		And MH.[FileName]=@MAO004filename
 Where	SubString(M4.Col001,1,1) = '0' -- Header Record
 And		MH.[RecordType] Is Null 
 
 -- Detail
-Insert	Into [dbo].[MAO004_DTL]
-Select	  SubString(M4.Col001,1,1) As [RecordType]		  	-- 1 = Detail
-		, SubString(M4.Col001,2,1) As [Delimiter01]		-- *
-		, SubString(M4.Col001,3,7) As [ReportID]		-- MAO-004
-		, SubString(M4.Col001,10,1) As [Delimiter02]		-- *
-		, SubString(M4.Col001,11,5) As [MAContractID]		-- Medicare Advantage Contract ID
-		, SubString(M4.Col001,16,1) As [Delimiter03]		-- *
-		, SubString(M4.Col001,17,12) As [BeneficiaryHICN]   	-- Beneficiary Health Insurance Claim Number or Medicare Beneficiary Identifier (MBI)
-		, SubString(M4.Col001,29,1) As [Delimiter04]		-- *
-		, SubString(M4.Col001,30,20) As [EncounterICN]		-- Encounter Data System (EDS) Internal Control Number (ICN)
-									-- Note: Currently the ICN is 13 characters long
-		, SubString(M4.Col001,50,1) As [Delimiter05]		-- *
-		, SubString(M4.Col001,51,1) As [EncounterTypeSwitch]-- See ## Note 1 Below
-		, SubString(M4.Col001,52,1) As [Delimiter06]		-- *
-		, SubString(M4.Col001,53,20) As [LinkEncounterICN]	-- Encounter Data System (EDS) Internal Control Number (ICN)
-									-- See ## Note 2 Below 
-		, SubString(M4.Col001,73,1) As [Delimiter07]		-- *
-		, SubString(M4.Col001,74,1) As [LinkEncAllowStatus] 	-- See ## Note 3 Below 													
-		, SubString(M4.Col001,75,1) As [Delimiter08]		-- *
-		, SubString(M4.Col001,76,8) As [EncounterSubmissionDate]-- CCYYMMDD
-		, SubString(M4.Col001,84,1) As [Delimiter09]		-- *
-		, SubString(M4.Col001,85,8) As [FromDateOfService] 	-- CCYYMMDD
-		, SubString(M4.Col001,93,1) As [Delimiter10]		-- *
-		, SubString(M4.Col001,94,8) As [ThruDateOfService]	-- CCYYMMDD
-		, SubString(M4.Col001,102,1) As [Delimiter11]		-- *
-		, SubString(M4.Col001,103,1) As [ServiceType]		-- Type of Claim: P=Professional, I=Inpatient, O=Outpatient, D=DMV, N=(AllOthers) Not Applicable
-		, SubString(M4.Col001,104,1) As [Delimiter12]		-- *
-		, SubString(M4.Col001,105,1) As [AllowedDisallowedFlag]	-- This field indicates if diagnoses on the current encounter data record are allowed or disallowed for risk adjustment.
-									-- ‘A’ = Diagnoses are allowed for risk adjustment.
-									-- ‘D’ = Diagnoses are disallowed for risk adjustment.
-									--		 Note: Non voids and non-chart review deletes with Service Type designated with ‘N’ will be ‘D’.
-									-- Blank = All Voids and chart review deletes,regardless of the service type, since allowed and disallowed status do not apply
-		, SubString(M4.Col001,106,1) As [Delimiter13]		-- *
-		, SubString(M4.Col001,107,1) As [AllowedDisallowedReasonCode]	
-									-- See ## Note 4 Below
-		, SubString(M4.Col001,108,1) As [Delimiter14]		-- *
-		, SubString(M4.Col001,109,1) As [DiagnosisICD]		-- 0 = ICD-10, 9 = ICD-9
-		, SubString(M4.Col001,110,1) As [Delimiter15]		-- *
-		, SubString(M4.Col001,111,7) As [DiagnosisCode01]	-- *
-		, SubString(M4.Col001,118,1) As [Delimiter16]		-- *
-		, SubString(M4.Col001,119,1) As [AddOrDeleteFlag01]	-- A = Add, D = Delete
-									-- See ## Note 5 Below
-		, SubString(M4.Col001,120,1) As [Delimiter17]		-- *
-		, SubString(M4.Col001,121,7) As [DiagnosisCode02]	-- See ## Note 6 Below
-		, SubString(M4.Col001,128,1) As [DelimiterD02]		-- *
-		, SubString(M4.Col001,129,1) As [AddOrDeleteFlag02]	-- 
-		, SubString(M4.Col001,130,1) As [DelimiterF02]		-- *
-		, SubString(M4.Col001,131,7) As [DiagnosisCode03]	--
-		, SubString(M4.Col001,138,1) As [DelimiterD03]		-- *
-		, SubString(M4.Col001,139,1) As [AddOrDeleteFlag03]	-- 
-		, SubString(M4.Col001,140,1) As [DelimiterF03]		-- *
-		, SubString(M4.Col001,141,7) As [DiagnosisCode04]	--
-		, SubString(M4.Col001,148,1) As [DelimiterD04]		-- *
-		, SubString(M4.Col001,149,1) As [AddOrDeleteFlag04]	-- 
-		, SubString(M4.Col001,150,1) As [DelimiterF04]		-- *
-		, SubString(M4.Col001,151,7) As [DiagnosisCode05]	--
-		, SubString(M4.Col001,158,1) As [DelimiterD05]		-- *
-		, SubString(M4.Col001,159,1) As [AddOrDeleteFlag05]	-- 
-		, SubString(M4.Col001,160,1) As [DelimiterF05]		-- *
-		, SubString(M4.Col001,161,7) As [DiagnosisCode06]	--
-		, SubString(M4.Col001,168,1) As [DelimiterD06]		-- *
-		, SubString(M4.Col001,169,1) As [AddOrDeleteFlag06]	-- 
-		, SubString(M4.Col001,170,1) As [DelimiterF06]		-- *
-		, SubString(M4.Col001,171,7) As [DiagnosisCode07]	--
-		, SubString(M4.Col001,178,1) As [DelimiterD07]		-- *
-		, SubString(M4.Col001,179,1) As [AddOrDeleteFlag07]	-- 
-		, SubString(M4.Col001,180,1) As [DelimiterF07]		-- *
-		, SubString(M4.Col001,181,7) As [DiagnosisCode08]	--
-		, SubString(M4.Col001,188,1) As [DelimiterD08]		-- *
-		, SubString(M4.Col001,189,1) As [AddOrDeleteFlag08]	-- 
-		, SubString(M4.Col001,190,1) As [DelimiterF08]		-- *
-		, SubString(M4.Col001,191,7) As [DiagnosisCode09]	--
-		, SubString(M4.Col001,198,1) As [DelimiterD09]		-- *
-		, SubString(M4.Col001,199,1) As [AddOrDeleteFlag09]	-- 
-		, SubString(M4.Col001,200,1) As [DelimiterF09]		-- *
-		, SubString(M4.Col001,201,7) As [DiagnosisCode10]	--
-		, SubString(M4.Col001,208,1) As [DelimiterD10]		-- *
-		, SubString(M4.Col001,209,1) As [AddOrDeleteFlag10]	-- 
-		, SubString(M4.Col001,210,1) As [DelimiterF10]		-- *
-		, SubString(M4.Col001,211,7) As [DiagnosisCode11]	--
-		, SubString(M4.Col001,218,1) As [DelimiterD11]		-- *
-		, SubString(M4.Col001,219,1) As [AddOrDeleteFlag11]	-- 
-		, SubString(M4.Col001,220,1) As [DelimiterF11]		-- *
-		, SubString(M4.Col001,221,7) As [DiagnosisCode12]	--
-		, SubString(M4.Col001,228,1) As [DelimiterD12]		-- *
-		, SubString(M4.Col001,229,1) As [AddOrDeleteFlag12]	-- 
-		, SubString(M4.Col001,230,1) As [DelimiterF12]		-- *
-		, SubString(M4.Col001,231,7) As [DiagnosisCode13]	--
-		, SubString(M4.Col001,238,1) As [DelimiterD13]		-- *
-		, SubString(M4.Col001,239,1) As [AddOrDeleteFlag13]	-- 
-		, SubString(M4.Col001,240,1) As [DelimiterF13]		-- *
-		, SubString(M4.Col001,241,7) As [DiagnosisCode14]	--
-		, SubString(M4.Col001,248,1) As [DelimiterD14]		-- *
-		, SubString(M4.Col001,249,1) As [AddOrDeleteFlag14]	-- 
-		, SubString(M4.Col001,250,1) As [DelimiterF14]		-- *
-		, SubString(M4.Col001,251,7) As [DiagnosisCode15]	--
-		, SubString(M4.Col001,258,1) As [DelimiterD15]		-- *
-		, SubString(M4.Col001,259,1) As [AddOrDeleteFlag15]	-- 
-		, SubString(M4.Col001,260,1) As [DelimiterF15]		-- *
-		, SubString(M4.Col001,261,7) As [DiagnosisCode16]	--
-		, SubString(M4.Col001,268,1) As [DelimiterD16]		-- *
-		, SubString(M4.Col001,269,1) As [AddOrDeleteFlag16]	-- 
-		, SubString(M4.Col001,270,1) As [DelimiterF16]		-- *
-		, SubString(M4.Col001,271,7) As [DiagnosisCode17]	--
-		, SubString(M4.Col001,278,1) As [DelimiterD17]		-- *
-		, SubString(M4.Col001,279,1) As [AddOrDeleteFlag17]	-- 
-		, SubString(M4.Col001,280,1) As [DelimiterF17]		-- *
-		, SubString(M4.Col001,281,7) As [DiagnosisCode18]	--
-		, SubString(M4.Col001,288,1) As [DelimiterD18]		-- *
-		, SubString(M4.Col001,289,1) As [AddOrDeleteFlag18]	-- 
-		, SubString(M4.Col001,290,1) As [DelimiterF18]		-- *
-		, SubString(M4.Col001,291,7) As [DiagnosisCode19]	--
-		, SubString(M4.Col001,298,1) As [DelimiterD19]		-- *
-		, SubString(M4.Col001,299,1) As [AddOrDeleteFlag19]	-- 
-		, SubString(M4.Col001,300,1) As [DelimiterF19]		-- *
-		, SubString(M4.Col001,301,7) As [DiagnosisCode20]	--
-		, SubString(M4.Col001,308,1) As [DelimiterD20]		-- *
-		, SubString(M4.Col001,309,1) As [AddOrDeleteFlag20]	-- 
-		, SubString(M4.Col001,310,1) As [DelimiterF20]		-- *
-		, SubString(M4.Col001,311,7) As [DiagnosisCode21]	--
-		, SubString(M4.Col001,318,1) As [DelimiterD21]		-- *
-		, SubString(M4.Col001,319,1) As [AddOrDeleteFlag21]	-- 
-		, SubString(M4.Col001,320,1) As [DelimiterF21]		-- *
-		, SubString(M4.Col001,321,7) As [DiagnosisCode22]	--
-		, SubString(M4.Col001,328,1) As [DelimiterD22]		-- *
-		, SubString(M4.Col001,329,1) As [AddOrDeleteFlag22]	-- 
-		, SubString(M4.Col001,330,1) As [DelimiterF22]		-- *
-		, SubString(M4.Col001,331,7) As [DiagnosisCode23]	--
-		, SubString(M4.Col001,338,1) As [DelimiterD23]		-- *
-		, SubString(M4.Col001,339,1) As [AddOrDeleteFlag23]	-- 
-		, SubString(M4.Col001,340,1) As [DelimiterF23]		-- *
-		, SubString(M4.Col001,341,7) As [DiagnosisCode24]	--
-		, SubString(M4.Col001,348,1) As [DelimiterD24]		-- *
-		, SubString(M4.Col001,349,1) As [AddOrDeleteFlag24]	-- 
-		, SubString(M4.Col001,350,1) As [DelimiterF24]		-- *
-		, SubString(M4.Col001,351,7) As [DiagnosisCode25]	--
-		, SubString(M4.Col001,358,1) As [DelimiterD25]		-- *
-		, SubString(M4.Col001,359,1) As [AddOrDeleteFlag25]	-- 
-		, SubString(M4.Col001,360,1) As [DelimiterF25]		-- *
-		, SubString(M4.Col001,361,7) As [DiagnosisCode26]	--
-		, SubString(M4.Col001,368,1) As [DelimiterD26]		-- *
-		, SubString(M4.Col001,369,1) As [AddOrDeleteFlag26]	-- 
-		, SubString(M4.Col001,370,1) As [DelimiterF26]		-- *
-		, SubString(M4.Col001,371,7) As [DiagnosisCode27]	--
-		, SubString(M4.Col001,378,1) As [DelimiterD27]		-- *
-		, SubString(M4.Col001,379,1) As [AddOrDeleteFlag27]	-- 
-		, SubString(M4.Col001,380,1) As [DelimiterF27]		-- *
-		, SubString(M4.Col001,381,7) As [DiagnosisCode28]	--
-		, SubString(M4.Col001,388,1) As [DelimiterD28]		-- *
-		, SubString(M4.Col001,389,1) As [AddOrDeleteFlag28]	-- 
-		, SubString(M4.Col001,390,1) As [DelimiterF28]		-- *
-		, SubString(M4.Col001,391,7) As [DiagnosisCode29]	--
-		, SubString(M4.Col001,398,1) As [DelimiterD29]		-- *
-		, SubString(M4.Col001,399,1) As [AddOrDeleteFlag29]	-- 
-		, SubString(M4.Col001,400,1) As [DelimiterF29]		-- *
-		, SubString(M4.Col001,401,7) As [DiagnosisCode30]	--
-		, SubString(M4.Col001,408,1) As [DelimiterD30]		-- *
-		, SubString(M4.Col001,409,1) As [AddOrDeleteFlag30]	-- 
-		, SubString(M4.Col001,410,1) As [DelimiterF30]		-- *
-		, SubString(M4.Col001,411,7) As [DiagnosisCode31]	--
-		, SubString(M4.Col001,418,1) As [DelimiterD31]		-- *
-		, SubString(M4.Col001,419,1) As [AddOrDeleteFlag31]	-- 
-		, SubString(M4.Col001,420,1) As [DelimiterF31]		-- *
-		, SubString(M4.Col001,421,7) As [DiagnosisCode32]	--
-		, SubString(M4.Col001,428,1) As [DelimiterD32]		-- *
-		, SubString(M4.Col001,429,1) As [AddOrDeleteFlag32]	-- 
-		, SubString(M4.Col001,430,1) As [DelimiterF32]		-- *
-		, SubString(M4.Col001,431,7) As [DiagnosisCode33]	--
-		, SubString(M4.Col001,438,1) As [DelimiterD33]		-- *
-		, SubString(M4.Col001,439,1) As [AddOrDeleteFlag33]	-- 
-		, SubString(M4.Col001,440,1) As [DelimiterF33]		-- *
-		, SubString(M4.Col001,441,7) As [DiagnosisCode34]	--
-		, SubString(M4.Col001,448,1) As [DelimiterD34]		-- *
-		, SubString(M4.Col001,449,1) As [AddOrDeleteFlag34]	-- 
-		, SubString(M4.Col001,450,1) As [DelimiterF34]		-- *
-		, SubString(M4.Col001,451,7) As [DiagnosisCode35]	--
-		, SubString(M4.Col001,458,1) As [DelimiterD35]		-- *
-		, SubString(M4.Col001,459,1) As [AddOrDeleteFlag35]	-- 
-		, SubString(M4.Col001,460,1) As [DelimiterF35]		-- *
-		, SubString(M4.Col001,461,7) As [DiagnosisCode36]	--
-		, SubString(M4.Col001,468,1) As [DelimiterD36]		-- *
-		, SubString(M4.Col001,469,1) As [AddOrDeleteFlag36]	-- 
-		, SubString(M4.Col001,470,1) As [DelimiterF36]		-- *
-		, SubString(M4.Col001,471,7) As [DiagnosisCode37]	--
-		, SubString(M4.Col001,478,1) As [DelimiterD37]		-- *
-		, SubString(M4.Col001,479,1) As [AddOrDeleteFlag37]	-- 
-		, SubString(M4.Col001,480,1) As [DelimiterF37]		-- *
-		, SubString(M4.Col001,481,7) As [DiagnosisCode38]	--
-		, SubString(M4.Col001,488,1) As [DelimiterD38]		-- *
-		, SubString(M4.Col001,489,1) As [AddOrDeleteFlag38]	-- 
-		, SubString(M4.Col001,490,1) As [DelimiterF38]		-- *
-		, SubString(M4.Col001,491,10) As [Filler]		-- Spaces
-		, @today As [DateImported]
+Insert	Into MAO004_DTL
+Select	  SubString(M4.Col001,1,1) As RecordType		  	-- 1 = Detail
+		, SubString(M4.Col001,2,1) As Delimiter01			-- *
+		, SubString(M4.Col001,3,7) As ReportID			-- MAO-004
+		, SubString(M4.Col001,10,1) As Delimiter02		-- *
+		, SubString(M4.Col001,11,5) As MAContractID		-- Medicare Advantage Contract ID
+		, SubString(M4.Col001,16,1) As Delimiter03		-- *
+		, SubString(M4.Col001,17,12) As BeneficiaryHICN   -- Beneficiary Health Insurance Claim Number or Medicare Beneficiary Identifier (MBI)
+		, SubString(M4.Col001,29,1) As Delimiter04		-- *
+		, SubString(M4.Col001,30,20) As EncounterICN		-- Encounter Data System (EDS) Internal Control Number (ICN)
+									                        -- Note: Currently the ICN is 13 characters long
+		, SubString(M4.Col001,50,1) As Delimiter05		-- *
+		, SubString(M4.Col001,51,1) As EncounterTypeSwitch-- See ## Note 1 Below
+		, SubString(M4.Col001,52,1) As Delimiter06		-- *
+		, SubString(M4.Col001,53,20) As LinkEncounterICN	-- Encounter Data System (EDS) Internal Control Number (ICN)
+															-- See ## Note 2 Below 
+		, SubString(M4.Col001,73,1) As Delimiter07		-- *
+		, SubString(M4.Col001,74,1) As LinkEncAllowStatus -- See ## Note 3 Below 													
+		, SubString(M4.Col001,75,1) As Delimiter08		-- *
+		, SubString(M4.Col001,76,8) As EncounterSubmissionDate-- CCYYMMDD
+		, SubString(M4.Col001,84,1) As Delimiter09		-- *
+		, SubString(M4.Col001,85,8) As FromDateOfService -- CCYYMMDD
+		, SubString(M4.Col001,93,1) As Delimiter10		-- *
+		, SubString(M4.Col001,94,8) As ThruDateOfService	-- CCYYMMDD
+		, SubString(M4.Col001,102,1) As Delimiter11		-- *
+		, SubString(M4.Col001,103,1) As ServiceType		-- Type of Claim: P=Professional, I=Inpatient, O=Outpatient, D=DMV, N=(AllOthers) Not Applicable
+		, SubString(M4.Col001,104,1) As Delimiter12		-- *
+		, SubString(M4.Col001,105,1) As AllowedDisallowedFlag	-- This field indicates if diagnoses on the current encounter data record are allowed or disallowed for risk adjustment.
+										-- ‘A’ = Diagnoses are allowed for risk adjustment.
+										-- ‘D’ = Diagnoses are disallowed for risk adjustment.
+										--		 Note: Non voids and non-chart review deletes with Service Type designated with ‘N’ will be ‘D’.
+										-- Blank = All Voids and chart review deletes,regardless of the service type, since allowed and disallowed status do not apply
+		, SubString(M4.Col001,106,1) As Delimiter13		-- *
+		, SubString(M4.Col001,107,1) As AllowedDisallowedReasonCode	
+															-- See ## Note 4 Below
+		, SubString(M4.Col001,108,1) As Delimiter14		-- *
+		, SubString(M4.Col001,109,1) As DiagnosisICD		-- 0 = ICD-10, 9 = ICD-9
+		, SubString(M4.Col001,110,1) As Delimiter15		-- *
+		, SubString(M4.Col001,111,7) As DiagnosisCode01	-- *
+		, SubString(M4.Col001,118,1) As Delimiter16		-- *
+		, SubString(M4.Col001,119,1) As AddOrDeleteFlag01	-- A = Add, D = Delete
+															-- See ## Note 5 Below
+		, SubString(M4.Col001,120,1) As Delimiter17		-- *
+		, SubString(M4.Col001,121,7) As DiagnosisCode02	-- See ## Note 6 Below
+		, SubString(M4.Col001,128,1) As DelimiterD02		-- *
+		, SubString(M4.Col001,129,1) As AddOrDeleteFlag02	-- 
+		, SubString(M4.Col001,130,1) As DelimiterF02		-- *
+		, SubString(M4.Col001,131,7) As DiagnosisCode03	--
+		, SubString(M4.Col001,138,1) As DelimiterD03		-- *
+		, SubString(M4.Col001,139,1) As AddOrDeleteFlag03	-- 
+		, SubString(M4.Col001,140,1) As DelimiterF03		-- *
+		, SubString(M4.Col001,141,7) As DiagnosisCode04	--
+		, SubString(M4.Col001,148,1) As DelimiterD04		-- *
+		, SubString(M4.Col001,149,1) As AddOrDeleteFlag04	-- 
+		, SubString(M4.Col001,150,1) As DelimiterF04		-- *
+		, SubString(M4.Col001,151,7) As DiagnosisCode05	--
+		, SubString(M4.Col001,158,1) As DelimiterD05		-- *
+		, SubString(M4.Col001,159,1) As AddOrDeleteFlag05	-- 
+		, SubString(M4.Col001,160,1) As DelimiterF05		-- *
+		, SubString(M4.Col001,161,7) As DiagnosisCode06	--
+		, SubString(M4.Col001,168,1) As DelimiterD06		-- *
+		, SubString(M4.Col001,169,1) As AddOrDeleteFlag06	-- 
+		, SubString(M4.Col001,170,1) As DelimiterF06		-- *
+		, SubString(M4.Col001,171,7) As DiagnosisCode07	--
+		, SubString(M4.Col001,178,1) As DelimiterD07		-- *
+		, SubString(M4.Col001,179,1) As AddOrDeleteFlag07	-- 
+		, SubString(M4.Col001,180,1) As DelimiterF07		-- *
+		, SubString(M4.Col001,181,7) As DiagnosisCode08	--
+		, SubString(M4.Col001,188,1) As DelimiterD08		-- *
+		, SubString(M4.Col001,189,1) As AddOrDeleteFlag08	-- 
+		, SubString(M4.Col001,190,1) As DelimiterF08		-- *
+		, SubString(M4.Col001,191,7) As DiagnosisCode09	--
+		, SubString(M4.Col001,198,1) As DelimiterD09		-- *
+		, SubString(M4.Col001,199,1) As AddOrDeleteFlag09	-- 
+		, SubString(M4.Col001,200,1) As DelimiterF09		-- *
+		, SubString(M4.Col001,201,7) As DiagnosisCode10	--
+		, SubString(M4.Col001,208,1) As DelimiterD10		-- *
+		, SubString(M4.Col001,209,1) As AddOrDeleteFlag10	-- 
+		, SubString(M4.Col001,210,1) As DelimiterF10		-- *
+		, SubString(M4.Col001,211,7) As DiagnosisCode11	--
+		, SubString(M4.Col001,218,1) As DelimiterD11		-- *
+		, SubString(M4.Col001,219,1) As AddOrDeleteFlag11	-- 
+		, SubString(M4.Col001,220,1) As DelimiterF11		-- *
+		, SubString(M4.Col001,221,7) As DiagnosisCode12	--
+		, SubString(M4.Col001,228,1) As DelimiterD12		-- *
+		, SubString(M4.Col001,229,1) As AddOrDeleteFlag12	-- 
+		, SubString(M4.Col001,230,1) As DelimiterF12		-- *
+		, SubString(M4.Col001,231,7) As DiagnosisCode13	--
+		, SubString(M4.Col001,238,1) As DelimiterD13		-- *
+		, SubString(M4.Col001,239,1) As AddOrDeleteFlag13	-- 
+		, SubString(M4.Col001,240,1) As DelimiterF13		-- *
+		, SubString(M4.Col001,241,7) As DiagnosisCode14	--
+		, SubString(M4.Col001,248,1) As DelimiterD14		-- *
+		, SubString(M4.Col001,249,1) As AddOrDeleteFlag14	-- 
+		, SubString(M4.Col001,250,1) As DelimiterF14		-- *
+		, SubString(M4.Col001,251,7) As DiagnosisCode15	--
+		, SubString(M4.Col001,258,1) As DelimiterD15		-- *
+		, SubString(M4.Col001,259,1) As AddOrDeleteFlag15	-- 
+		, SubString(M4.Col001,260,1) As DelimiterF15		-- *
+		, SubString(M4.Col001,261,7) As DiagnosisCode16	--
+		, SubString(M4.Col001,268,1) As DelimiterD16		-- *
+		, SubString(M4.Col001,269,1) As AddOrDeleteFlag16	-- 
+		, SubString(M4.Col001,270,1) As DelimiterF16		-- *
+		, SubString(M4.Col001,271,7) As DiagnosisCode17	--
+		, SubString(M4.Col001,278,1) As DelimiterD17		-- *
+		, SubString(M4.Col001,279,1) As AddOrDeleteFlag17	-- 
+		, SubString(M4.Col001,280,1) As DelimiterF17		-- *
+		, SubString(M4.Col001,281,7) As DiagnosisCode18	--
+		, SubString(M4.Col001,288,1) As DelimiterD18		-- *
+		, SubString(M4.Col001,289,1) As AddOrDeleteFlag18	-- 
+		, SubString(M4.Col001,290,1) As DelimiterF18		-- *
+		, SubString(M4.Col001,291,7) As DiagnosisCode19	--
+		, SubString(M4.Col001,298,1) As DelimiterD19		-- *
+		, SubString(M4.Col001,299,1) As AddOrDeleteFlag19	-- 
+		, SubString(M4.Col001,300,1) As DelimiterF19		-- *
+		, SubString(M4.Col001,301,7) As DiagnosisCode20	--
+		, SubString(M4.Col001,308,1) As DelimiterD20		-- *
+		, SubString(M4.Col001,309,1) As AddOrDeleteFlag20	-- 
+		, SubString(M4.Col001,310,1) As DelimiterF20		-- *
+		, SubString(M4.Col001,311,7) As DiagnosisCode21	--
+		, SubString(M4.Col001,318,1) As DelimiterD21		-- *
+		, SubString(M4.Col001,319,1) As AddOrDeleteFlag21	-- 
+		, SubString(M4.Col001,320,1) As DelimiterF21		-- *
+		, SubString(M4.Col001,321,7) As DiagnosisCode22	--
+		, SubString(M4.Col001,328,1) As DelimiterD22		-- *
+		, SubString(M4.Col001,329,1) As AddOrDeleteFlag22	-- 
+		, SubString(M4.Col001,330,1) As DelimiterF22		-- *
+		, SubString(M4.Col001,331,7) As DiagnosisCode23	--
+		, SubString(M4.Col001,338,1) As DelimiterD23		-- *
+		, SubString(M4.Col001,339,1) As AddOrDeleteFlag23	-- 
+		, SubString(M4.Col001,340,1) As DelimiterF23		-- *
+		, SubString(M4.Col001,341,7) As DiagnosisCode24	--
+		, SubString(M4.Col001,348,1) As DelimiterD24		-- *
+		, SubString(M4.Col001,349,1) As AddOrDeleteFlag24	-- 
+		, SubString(M4.Col001,350,1) As DelimiterF24		-- *
+		, SubString(M4.Col001,351,7) As DiagnosisCode25	--
+		, SubString(M4.Col001,358,1) As DelimiterD25		-- *
+		, SubString(M4.Col001,359,1) As AddOrDeleteFlag25	-- 
+		, SubString(M4.Col001,360,1) As DelimiterF25		-- *
+		, SubString(M4.Col001,361,7) As DiagnosisCode26	--
+		, SubString(M4.Col001,368,1) As DelimiterD26		-- *
+		, SubString(M4.Col001,369,1) As AddOrDeleteFlag26	-- 
+		, SubString(M4.Col001,370,1) As DelimiterF26		-- *
+		, SubString(M4.Col001,371,7) As DiagnosisCode27	--
+		, SubString(M4.Col001,378,1) As DelimiterD27		-- *
+		, SubString(M4.Col001,379,1) As AddOrDeleteFlag27	-- 
+		, SubString(M4.Col001,380,1) As DelimiterF27		-- *
+		, SubString(M4.Col001,381,7) As DiagnosisCode28	--
+		, SubString(M4.Col001,388,1) As DelimiterD28		-- *
+		, SubString(M4.Col001,389,1) As AddOrDeleteFlag28	-- 
+		, SubString(M4.Col001,390,1) As DelimiterF28		-- *
+		, SubString(M4.Col001,391,7) As DiagnosisCode29	--
+		, SubString(M4.Col001,398,1) As DelimiterD29		-- *
+		, SubString(M4.Col001,399,1) As AddOrDeleteFlag29	-- 
+		, SubString(M4.Col001,400,1) As DelimiterF29		-- *
+		, SubString(M4.Col001,401,7) As DiagnosisCode30	--
+		, SubString(M4.Col001,408,1) As DelimiterD30		-- *
+		, SubString(M4.Col001,409,1) As AddOrDeleteFlag30	-- 
+		, SubString(M4.Col001,410,1) As DelimiterF30		-- *
+		, SubString(M4.Col001,411,7) As DiagnosisCode31	--
+		, SubString(M4.Col001,418,1) As DelimiterD31		-- *
+		, SubString(M4.Col001,419,1) As AddOrDeleteFlag31	-- 
+		, SubString(M4.Col001,420,1) As DelimiterF31		-- *
+		, SubString(M4.Col001,421,7) As DiagnosisCode32	--
+		, SubString(M4.Col001,428,1) As DelimiterD32		-- *
+		, SubString(M4.Col001,429,1) As AddOrDeleteFlag32	-- 
+		, SubString(M4.Col001,430,1) As DelimiterF32		-- *
+		, SubString(M4.Col001,431,7) As DiagnosisCode33	--
+		, SubString(M4.Col001,438,1) As DelimiterD33		-- *
+		, SubString(M4.Col001,439,1) As AddOrDeleteFlag33	-- 
+		, SubString(M4.Col001,440,1) As DelimiterF33		-- *
+		, SubString(M4.Col001,441,7) As DiagnosisCode34	--
+		, SubString(M4.Col001,448,1) As DelimiterD34		-- *
+		, SubString(M4.Col001,449,1) As AddOrDeleteFlag34	-- 
+		, SubString(M4.Col001,450,1) As DelimiterF34		-- *
+		, SubString(M4.Col001,451,7) As DiagnosisCode35	--
+		, SubString(M4.Col001,458,1) As DelimiterD35		-- *
+		, SubString(M4.Col001,459,1) As AddOrDeleteFlag35	-- 
+		, SubString(M4.Col001,460,1) As DelimiterF35		-- *
+		, SubString(M4.Col001,461,7) As DiagnosisCode36	--
+		, SubString(M4.Col001,468,1) As DelimiterD36		-- *
+		, SubString(M4.Col001,469,1) As AddOrDeleteFlag36	-- 
+		, SubString(M4.Col001,470,1) As DelimiterF36		-- *
+		, SubString(M4.Col001,471,7) As DiagnosisCode37	--
+		, SubString(M4.Col001,478,1) As DelimiterD37		-- *
+		, SubString(M4.Col001,479,1) As AddOrDeleteFlag37	-- 
+		, SubString(M4.Col001,480,1) As DelimiterF37		-- *
+		, SubString(M4.Col001,481,7) As DiagnosisCode38	--
+		, SubString(M4.Col001,488,1) As DelimiterD38		-- *
+		, SubString(M4.Col001,489,1) As AddOrDeleteFlag38	-- 
+		, SubString(M4.Col001,490,1) As DelimiterF38		-- *
+		, SubString(M4.Col001,491,10) As Filler			-- Spaces
+		, @today As DateImported
 		, @MAO004filename As [FileName]
-From	[dbo].[MAO004In] As M4
-Left	Outer Join [dbo].[MAO004_DTL] As MD
-		On MD.[BeneficiaryHICN]=SubString(M4.Col001,17,12)
-		And MD.[EncounterICN] = SubString(M4.Col001,30,20)
+From	MAO004In As M4
+Left	Outer Join MAO004_DTL As MD
+		On MD.BeneficiaryHICN=SubString(M4.Col001,17,12)
+		And MD.EncounterICN = SubString(M4.Col001,30,20)
 		And MD.[FileName]=@MAO004filename
 Where	SubString(M4.Col001,1,1) = '1' -- Detail Record
-And		MD.[RecordType] Is Null 
+And		MD.RecordType Is Null 
 
 /*
  ## Note 1. Encounter Type Switch
@@ -298,24 +296,594 @@ And		MD.[RecordType] Is Null
 	codes along with the corresponding Diagnosis ICD and Add or Delete flag (field #25-30 values)
 */
 -- Trailer
-Insert	Into [dbo].[MAO004_TRL]
-Select	  SubString(M4.Col001,1,1) As [RecordType]		  	-- 9 = Trailer
-		, SubString(M4.Col001,2,1) As [Delimiter01]			-- *
-		, SubString(M4.Col001,3,7) As [ReportID]            -- MAO-004
-		, SubString(M4.Col001,10,1) As [Delimiter02]		-- *
-		, SubString(M4.Col001,11,5) As [MAContractID]       -- Medicare Advantage Contract ID
-		, SubString(M4.Col001,16,1) As [Delimiter03]		-- *
-		, SubString(M4.Col001,17,18) As [TotalNumberOfRecords]	--
-		, SubString(M4.Col001,35,1) As [Delimiter04]		-- *
-		, SubString(M4.Col001,36,465) As [Filler]			-- Spaces
-		, @today As [DateImported]
+Insert	Into MAO004_TRL
+Select	  SubString(M4.Col001,1,1) As RecordType		-- 9 = Trailer
+		, SubString(M4.Col001,2,1) As Delimiter01		-- *
+		, SubString(M4.Col001,3,7) As ReportID          -- MAO-004
+		, SubString(M4.Col001,10,1) As Delimiter02		-- *
+		, SubString(M4.Col001,11,5) As MAContractID     -- Medicare Advantage Contract ID
+		, SubString(M4.Col001,16,1) As Delimiter03		-- *
+		, SubString(M4.Col001,17,18) As TotalNumberOfRecords	--
+		, SubString(M4.Col001,35,1) As Delimiter04		-- *
+		, SubString(M4.Col001,36,465) As Filler			-- Spaces
+		, @today As DateImported
 		, @MAO004filename As [FileName]
-From	[dbo].[MAO004In] As M4
-Left	Outer Join [dbo].[MAO004_TRL] As MT
+From	MAO004In As M4
+Left	Outer Join MAO004_TRL As MT
 		On MT.[FileName] = @MAO004filename
 Where	SubString(M4.Col001,1,1) = '9'
-And		MT.[RecordType] Is Null
+And		MT.RecordType Is Null
 
-If OBJECT_ID('dbo.MAO004In') Is Not Null Drop Table [dbo].[MAO004In]
+-- Populate MAO004_DIAG
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis01 As Diagnosis
+,		D.AddOrDeleteFlag01 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis01
+Where	Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis02 As Diagnosis
+,		D.AddOrDeleteFlag02 As AddOrDeleteFlag
+,		D.[DateImported], D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis02
+Where	D.Diagnosis02 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis03 As Diagnosis
+,		D.AddOrDeleteFlag03 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis03
+Where	D.Diagnosis03 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis04 As Diagnosis
+,		D.AddOrDeleteFlag04 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis04
+Where	D.Diagnosis04 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis05 As Diagnosis
+,		D.AddOrDeleteFlag05 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis05
+Where	D.Diagnosis05 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis06 As Diagnosis
+,		D.AddOrDeleteFlag06 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis06
+Where	D.Diagnosis06 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis07 As Diagnosis
+,		D.AddOrDeleteFlag07 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis07
+Where	D.Diagnosis07 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis08 As Diagnosis
+,		D.AddOrDeleteFlag08 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis08
+Where	D.Diagnosis08 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis09 As Diagnosis
+,		D.AddOrDeleteFlag09 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis09
+Where	D.Diagnosis09 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis10 As Diagnosis
+,		D.AddOrDeleteFlag10 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis10
+Where	D.Diagnosis10 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis11 As Diagnosis
+,		D.AddOrDeleteFlag11 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis11
+Where	D.Diagnosis11 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis12 As Diagnosis
+,		D.AddOrDeleteFlag12 As AddOrDeleteFlag
+,		D.[DateImported], D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis12
+Where	D.Diagnosis12 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis13 As Diagnosis
+,		D.AddOrDeleteFlag13 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis13
+Where	D.Diagnosis13 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis14 As Diagnosis
+,		D.AddOrDeleteFlag14 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis14
+Where	D.Diagnosis14 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis15 As Diagnosis
+,		D.AddOrDeleteFlag15 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis15
+Where	D.Diagnosis15 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis16 As Diagnosis
+,		D.AddOrDeleteFlag16 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis16
+Where	D.Diagnosis16 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis17 As Diagnosis
+,		D.AddOrDeleteFlag17 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis17
+Where	D.Diagnosis17 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis18 As Diagnosis
+,		D.AddOrDeleteFlag18 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis18
+Where	D.Diagnosis18 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis19 As Diagnosis
+,		D.AddOrDeleteFlag19 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis19
+Where	D.Diagnosis19 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis20 As Diagnosis
+,		D.AddOrDeleteFlag20 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis20
+Where	D.Diagnosis20 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis21 As Diagnosis
+,		D.AddOrDeleteFlag21 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis21
+Where	D.Diagnosis21 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis22 As Diagnosis
+,		D.AddOrDeleteFlag22 As AddOrDeleteFlag
+,		D.[DateImported], D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis22
+Where	D.Diagnosis22 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis23 As Diagnosis
+,		D.AddOrDeleteFlag23 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis23
+Where	D.Diagnosis23 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis24 As Diagnosis
+,		D.AddOrDeleteFlag24 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis24
+Where	D.Diagnosis24 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis25 As Diagnosis
+,		D.AddOrDeleteFlag25 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis25
+Where	D.Diagnosis25 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis26 As Diagnosis
+,		D.AddOrDeleteFlag26 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis26
+Where	D.Diagnosis26 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis27 As Diagnosis
+,		D.AddOrDeleteFlag27 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis27
+Where	D.Diagnosis27 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis28 As Diagnosis
+,		D.AddOrDeleteFlag28 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis28
+Where	D.Diagnosis28 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis29 As Diagnosis
+,		D.AddOrDeleteFlag29 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis29
+Where	D.Diagnosis29 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis30 As Diagnosis
+,		D.AddOrDeleteFlag30 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis30
+Where	D.Diagnosis30 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis31 As Diagnosis
+,		D.AddOrDeleteFlag31 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis31
+Where	D.Diagnosis31 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis32 As Diagnosis
+,		D.AddOrDeleteFlag32 As AddOrDeleteFlag
+,		D.[DateImported], D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis32
+Where	D.Diagnosis32 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis33 As Diagnosis
+,		D.AddOrDeleteFlag33 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis33
+Where	D.Diagnosis33 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis34 As Diagnosis
+,		D.AddOrDeleteFlag34 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis34
+Where	D.Diagnosis34 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis35 As Diagnosis
+,		D.AddOrDeleteFlag35 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis35
+Where	D.Diagnosis35 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis36 As Diagnosis
+,		D.AddOrDeleteFlag36 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis36
+Where	D.Diagnosis36 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis37 As Diagnosis
+,		D.AddOrDeleteFlag37 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis37
+Where	D.Diagnosis37 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+Insert Into dbo.MAO004_DIAG
+Select	D.MAContractID,D.BeneficiaryHICN,D.EncounterICN,D.EncounterTypeSwitch,D.LinkEncounterICN,D.LinkEncAllowStatus,D.EncounterSubmissionDate
+,		D.FromDateOfService,D.ThruDateOfService,D.ServiceType,D.AllowedDisallowedFlag,D.AllowedDisallowedReasonCode,D.DiagnosisICD
+,		D.Diagnosis38 As Diagnosis
+,		D.AddOrDeleteFlag38 As AddOrDeleteFlag
+,		D.DateImported, D.[FileName]
+From	MAO004_DTL As D
+Left	Outer Join MAO004_DIAG As Dx
+		On Dx.BeneficiaryHICN = D.BeneficiaryHICN
+		And Dx.EncounterICN = D.EncounterICN
+		And Dx.[FileName] =  D.[FileName]
+		And	Dx.Diagnosis = D.Diagnosis38
+Where	D.Diagnosis38 <> ''
+And		Dx.BeneficiaryHICN Is Null
+
+If OBJECT_ID('dbo.MAO004In') Is Not Null Drop Table dbo.MAO004In
 
 End
