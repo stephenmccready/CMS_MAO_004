@@ -4,7 +4,7 @@ CREATE TABLE dbo.MAO004_HDR (
 ,	Delimiter01			varchar(1)		-- *
 ,	ReportID			varchar(7)		-- MAO-004
 ,	Delimiter02			varchar(1)		-- *
-,	MAContractID		varchar(5)		-- 
+,	MAContractID			varchar(5)		-- 
 ,	Delimiter03			varchar(1)		-- *
 ,	ReportDate			varchar(8)		-- CCYYMMDD
 ,	Delimiter04			varchar(1)		-- *
@@ -12,16 +12,18 @@ CREATE TABLE dbo.MAO004_HDR (
 ,	Delimiter05			varchar(1)		-- *
 ,	Filler01			varchar(30)		-- Spaces
 ,	Delimiter06			varchar(1)		-- *
-,	SubmissionFileType	varchar(4)		-- PROD or TEST
+,	SubmissionFileType		varchar(4)		-- PROD or TEST
 ,	Delimiter07			varchar(1)		-- *
 ,	Phase				varchar(1)		-- Alphanumeric
 ,	Delimiter08			varchar(1)		-- *
 ,	[Version]			varchar(1)		-- Alphanumeric
 ,	Delimiter09			varchar(1)		-- *
-,	Filler02			varchar(381)	-- Spaces
-,	DateImported		dateTime		-- 
-,	[FileName]			varchar(256)	-- path + filename
+,	Filler02			varchar(381)		-- Spaces
+,	DateImported			dateTime		-- 
+,	[FileName]			varchar(256)		--
 )
+
+Create Index ix_filename On dbo.MAO004_HDR([FileName])
 
 IF OBJECT_ID('dbo.MAO004_DTL') IS NOT NULL Drop Table dbo.MAO004_DTL
 CREATE TABLE dbo.MAO004_DTL (
@@ -52,7 +54,6 @@ CREATE TABLE dbo.MAO004_DTL (
 ,	Delimiter11			varchar(1)		-- *
 ,	ServiceType			varchar(1)		-- Type of Claim: P=Professional, I=Inpatient, O=Outpatient, D=DMV, N=(AllOthers) Not Applicable
 ,	Delimiter12			varchar(1)		-- *
-
 ,	AllowedDisallowedFlag varchar(1)	-- This field indicates if diagnoses on the current encounter data record are allowed or disallowed for risk
 										-- adjustment.
 										-- ‘A’ = Diagnoses are allowed for risk adjustment.
@@ -219,8 +220,13 @@ CREATE TABLE dbo.MAO004_DTL (
 ,	DelimiterF38		varchar(1)		-- *
 ,	Filler				varchar(10)	  	-- 
 ,	DateImported		dateTime		-- 
-,	[FileName]			varchar(256)	-- path + filename
+,	[FileName]			varchar(256)	--
 )
+
+Create Index ix_BeneficiaryHICN On dbo.MAO004_DTL(BeneficiaryHICN)
+Create Index ix_EncounterICN On dbo.MAO004_DTL(EncounterICN)
+Create Clustered Index ix_filename On dbo.MAO004_DTL([FileName])
+
 /*
  ## Note 1. Encounter Type Switch
 	1 = Original Encounter
@@ -280,5 +286,40 @@ CREATE TABLE dbo.MAO004_TRL (
 ,	Delimiter04			varchar(1)		-- *
 ,	Filler				varchar(465)	-- Spaces
 ,	DateImported		dateTime		-- 
-,	[FileName]			varchar(256)	-- path + filename
+,	[FileName]			varchar(256)	--
 )
+
+Create Index ix_filename On dbo.MAO004_TRL([FileName])
+
+CREATE TABLE dbo.MAO004_DIAG (
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	MAContractID		varchar(5)		-- Medicare Advantage Contract ID
+,	BeneficiaryHICN		varchar(12)		-- Beneficiary Health Insurance Claim Number
+,	EncounterICN		varchar(20)		-- Encounter Data System (EDS) Internal Control Number (ICN)
+										-- Note: Currently the ICN is 13 characters long
+,	EncounterTypeSwitch	varchar(1)		-- See ## Note 1 Above
+,	LinkEncounterICN	varchar(20)		-- Encounter Data System (EDS) Internal Control Number (ICN)
+										-- See ## Note 2 Above
+,	LinkEncAllowStatus	varchar(1)		-- Allowed/ Disallowed Status of Encounter Linked To
+,	EncounterSubmissionDate	varchar(8)	-- CCYYMMDD
+,	FromDateOfService	varchar(8)		-- CCYYMMDD
+,	ThruDateOfService	varchar(8)		-- CCYYMMDD
+,	ServiceType			varchar(1)		-- Type of Claim: P=Professional, I=Inpatient, O=Outpatient, D=DMV, N=(AllOthers) Not Applicable
+,	AllowedDisallowedFlag varchar(1)	-- This field indicates if diagnoses on the current encounter data record are allowed or disallowed for risk
+										-- adjustment.
+										-- ‘A’ = Diagnoses are allowed for risk adjustment.
+										-- ‘D’ = Diagnoses are disallowed for risk adjustment.
+										--		 Note: Non voids and non-chart review deletes with Service Type designated with ‘N’ will be ‘D’.
+										-- Blank = All Voids and chart review deletes,regardless of the service type, since allowed and disallowed status do not apply
+,	AllowedDisallowedReasonCode varchar(1)	-- See ## Note 4 Above
+,	DiagnosisICD		varchar(1)		-- 0 = ICD-10, 9 = ICD-9 
+,	Diagnosis			varchar(7)		-- ICD-10 (ICD-9 for pre ICD-10 implementation dates)
+,	AddOrDeleteFlag		varchar(1)		-- A = Add, D = Delete
+										-- See ## Note 5 above
+,	DateImported		dateTime
+,	[FileName]			varchar(256)
+)
+
+Create Clustered Index ix_BeneficiaryHICN On dbo.MAO004_DIAG(BeneficiaryHICN)
+Create Index ix_EncounterICN On dbo.MAO004_DIAG(EncounterICN)
+Create Index ix_filename On dbo.MAO004_DIAG([FileName])
